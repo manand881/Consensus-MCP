@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session: {{ state.topic }}</title>
+    <link rel="stylesheet" href="/static/base.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <nav class="back-nav" aria-label="Back navigation">
+        <a href="/sessions" class="back-button" tabindex="0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M19 12H5M12 19l-7-7 7-7"></path>
+            </svg>
+            Back to Sessions
+        </a>
+    </nav>
+    <header role="banner">
+        <div class="header">
+            <div>
+                <div class="topic">{{ state.topic }}</div>
+                <div class="meta">Round {{ state.round }}/{{ state.max_rounds }}</div>
+                <div class="meta">
+                    {% if state.created_at %}
+                        {% set ts = state.created_at %}
+                        {% set date_part = ts[:10] %}
+                        {% set time_part = ts[11:16] %}
+                        {% set hour = time_part[:2]|int %}
+                        {% set minute = time_part[3:5] %}
+                        {% set ampm = 'AM' if hour < 12 else 'PM' %}
+                        {% set display_hour = hour if hour <= 12 else hour - 12 %}
+                        {% if display_hour == 0 %}{% set display_hour = 12 %}{% endif %}
+                        Created: {{ date_part }} {{ display_hour }}:{{ minute }} {{ ampm }}
+                    {% endif %}
+                </div>
+                <div class="meta" id="goals-display">
+                    {{ state.goals|markdown }}
+                    <button onclick="toggleGoalsEdit()" style="background: none; border: none; color: var(--color-text-secondary); cursor: pointer; font-size: var(--font-size-sm); margin-left: var(--spacing-sm);" aria-label="Edit goals">✎</button>
+                </div>
+                <div class="meta" id="goals-edit" style="display: none;">
+                    <form id="goals-form" action="/session/{{ state.id }}/edit-goals" method="post" style="display: flex; gap: var(--spacing-sm); align-items: center;">
+                        <textarea name="goals" rows="2" required style="width: 100%; max-width: 600px; padding: var(--spacing-sm); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-family: inherit; font-size: var(--font-size-md);">{{ state.goals }}</textarea>
+                        <div style="display: flex; gap: var(--spacing-sm);">
+                            <button type="submit" class="submit-button" style="padding: var(--spacing-sm) var(--spacing-md);">Save</button>
+                            <button type="button" onclick="toggleGoalsEdit()" style="background: var(--bg-secondary); color: var(--color-text); border: 1px solid var(--color-border); padding: var(--spacing-sm) var(--spacing-md); border-radius: var(--radius-sm); cursor: pointer;">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="meta" style="display: flex; gap: var(--spacing-md); align-items: center; flex-wrap: wrap;">
+                    <div class="session-id-container" style="display: flex; align-items: center; gap: var(--spacing-sm);">
+                        <span class="session-id-label">Session ID:</span>
+                        <code class="session-id">{{ state.id }}</code>
+                        <button class="copy-button" onclick="copySessionId('{{ state.id }}')" aria-label="Copy session ID to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                        <span class="copy-feedback" id="copy-feedback"></span>
+                    </div>
+                    <a href="/session/{{ state.id }}/export" class="submit-button" style="text-decoration: none; display: inline-block; padding: var(--spacing-sm) var(--spacing-md); font-size: var(--font-size-sm);" aria-label="Export session as JSON" tabindex="0">Export</a>
+                    <form action="/session/{{ state.id }}/delete" method="post" onsubmit="return confirm('Are you sure you want to delete this session?');" style="display: inline;">
+                        <button type="submit" style="background-color: #dc3545; color: white; border: none; padding: var(--spacing-sm) var(--spacing-md); border-radius: var(--radius-sm); cursor: pointer; font-size: var(--font-size-sm);">Delete</button>
+                    </form>
+                </div>
+            </div>
+            <span class="phase phase-{{ state.phase }}" role="status" aria-live="polite">{{ state.phase|upper }}</span>
+        </div>
+    </header>
+    
+    <main id="main-content" role="main">
+        <section aria-labelledby="agents-heading" class="section">
+            <h2 id="agents-heading">Agents</h2>
+            <div class="agents-carousel" role="list" aria-label="Agent profiles">
+                {% for agent in state.agents %}
+                <div class="agent-profile-card" role="listitem">
+                    <div class="agent-profile-icon {{ agent.type }}">
+                        {{ agent.name|first }}
+                    </div>
+                    <div class="agent-profile-info">
+                        <div class="agent-profile-name">{{ agent.name }}</div>
+                        {% if agent.model and agent.model != 'default' %}
+                        <div class="agent-profile-model">{{ agent.model }}</div>
+                        {% endif %}
+                        <div class="agent-profile-type">{{ agent.type }}</div>
+                        <div class="agent-profile-role">{{ agent.role }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        
+        <section aria-labelledby="debate-heading" class="section">
+            <h2 id="debate-heading">Debate</h2>
+        {% if state.contributions %}
+            {% for contrib in state.contributions %}
+            <div class="chat-message">
+                <div class="profile-icon {{ contrib.agent_type }}">
+                    {{ contrib.agent_name|first }}
+                </div>
+                <div class="chat-message-content">
+                    <div class="chat-header">
+                        <span class="chat-name">{{ contrib.agent_name }}</span>
+                        <span class="chat-model">{{ contrib.agent_type_label }}</span>
+                        <span class="chat-timestamp" title="{{ contrib.timestamp }}">
+                            {% if contrib.timestamp %}
+                                {% set ts = contrib.timestamp %}
+                                {% set date_part = ts[:10] %}
+                                {% set time_part = ts[11:16] %}
+                                {% set hour = time_part[:2]|int %}
+                                {% set minute = time_part[3:5] %}
+                                {% set ampm = 'AM' if hour < 12 else 'PM' %}
+                                {% set display_hour = hour if hour <= 12 else hour - 12 %}
+                                {% if display_hour == 0 %}{% set display_hour = 12 %}{% endif %}
+                                {{ date_part }} {{ display_hour }}:{{ minute }} {{ ampm }}
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="content">{{ contrib.content|markdown }}</div>
+                    {% if contrib.evidence %}
+                    <div class="evidence">Evidence: {{ contrib.evidence }}</div>
+                    {% endif %}
+                    {% if contrib.challenges %}
+                    <div class="challenges">Challenges: {{ contrib.challenges|join(', ') }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="empty">No contributions yet. Agents are still debating...</p>
+        {% endif %}
+    </section>
+
+    {% if state.questions %}
+    <section aria-labelledby="questions-heading" class="section" style="background: var(--bg-agents);">
+        <h2 id="questions-heading">Clarification Questions</h2>
+        {% for question in state.questions %}
+        <div style="margin-bottom: var(--spacing-lg); padding: var(--spacing-md); background: var(--bg-secondary); border-radius: var(--radius-sm);">
+            <div style="font-weight: bold; margin-bottom: var(--spacing-sm);">Q: {{ question.question|markdown }}</div>
+            {% if question.answer %}
+            <div style="color: var(--color-text-secondary);">A: {{ question.answer|markdown }}</div>
+            {% else %}
+            <form action="/session/{{ state.id }}/answer-question" method="post" style="margin-top: var(--spacing-md);">
+                <input type="hidden" name="question_id" value="{{ question.id }}">
+                <div class="form-group">
+                    <label for="answer-{{ question.id }}">Your Answer:</label>
+                    <textarea id="answer-{{ question.id }}" name="answer" rows="2" required placeholder="Type your answer here..." tabindex="0"></textarea>
+                </div>
+                <button type="submit" class="submit-button" tabindex="0">Submit Answer</button>
+            </form>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
+
+    {% if state.agreements %}
+    <section aria-labelledby="agreements-heading" class="agreements">
+        <h2 id="agreements-heading">Agreements</h2>
+        <ul>
+            {% for agreement in state.agreements %}
+            <li>{{ agreement|markdown }}</li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
+    
+    {% if state.disagreements %}
+    <section aria-labelledby="disagreements-heading" class="disagreements">
+        <h2 id="disagreements-heading">Disagreements</h2>
+        <ul>
+            {% for disagreement in state.disagreements %}
+            <li>{{ disagreement|markdown }}</li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
+    
+    <section aria-labelledby="comment-heading" class="section">
+        <h2 id="comment-heading">Add Your Comment</h2>
+        <form id="comment-form" action="/session/{{ state.id }}/comment" method="post">
+            <div class="form-group">
+                <label for="comment-model">Your LLM model (optional):</label>
+                <input type="text" id="comment-model" name="model" placeholder="e.g., SWE-1.6" value="Human" tabindex="0">
+            </div>
+            <div class="form-group">
+                <label for="comment-content">Your comment:</label>
+                <textarea id="comment-content" name="content" rows="4" required placeholder="Share your thoughts on this debate..." tabindex="0"></textarea>
+            </div>
+            <button type="submit" class="submit-button" tabindex="0">Submit Comment</button>
+        </form>
+    </section>
+
+    <section aria-labelledby="agent-heading" class="section">
+        <h2 id="agent-heading">Add Agent</h2>
+        <form action="/session/{{ state.id }}/add-agent" method="post">
+            <div class="form-group">
+                <label for="agent-name">Agent Name:</label>
+                <input type="text" id="agent-name" name="name" required placeholder="e.g., Researcher" tabindex="0">
+            </div>
+            <div class="form-group">
+                <label for="agent-type">Agent Type:</label>
+                <select id="agent-type" name="agent_type" required tabindex="0">
+                    <option value="scientist">Scientist</option>
+                    <option value="perspective" selected>Perspective</option>
+                    <option value="synthesizer">Synthesizer</option>
+                    <option value="moderator">Moderator</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="agent-role">Role:</label>
+                <input type="text" id="agent-role" name="role" placeholder="e.g., Expert in domain X" tabindex="0">
+            </div>
+            <div class="form-group">
+                <label for="agent-model">Model (optional):</label>
+                <input type="text" id="agent-model" name="model" placeholder="e.g., SWE-1.6" value="default" tabindex="0">
+            </div>
+            <button type="submit" class="submit-button" tabindex="0">Add Agent</button>
+        </form>
+    </section>
+
+    <section aria-labelledby="phase-heading" class="section">
+        <h2 id="phase-heading">Phase Control</h2>
+        <form action="/session/{{ state.id }}/advance-phase" method="post">
+            <div class="form-group">
+                <label for="target-phase">Advance to Phase:</label>
+                <select id="target-phase" name="phase" tabindex="0">
+                    <option value="">Next Phase (Auto)</option>
+                    <option value="setup">Setup</option>
+                    <option value="position">Position</option>
+                    <option value="testing">Testing</option>
+                    <option value="challenge">Challenge</option>
+                    <option value="synthesis">Synthesis</option>
+                    <option value="refine">Refine</option>
+                    <option value="convergence">Convergence</option>
+                    <option value="implementing">Implementing</option>
+                    <option value="complete">Complete</option>
+                </select>
+            </div>
+            <button type="submit" class="submit-button" tabindex="0">Advance Phase</button>
+        </form>
+    </section>
+
+    <section aria-labelledby="consensus-heading" class="section">
+        <h2 id="consensus-heading">Declare Consensus</h2>
+        <form action="/session/{{ state.id }}/declare-consensus" method="post">
+            <div class="form-group">
+                <label for="consensus-statement">Consensus Statement:</label>
+                <textarea id="consensus-statement" name="statement" rows="3" required placeholder="State the consensus reached..." tabindex="0"></textarea>
+            </div>
+            <button type="submit" class="submit-button" tabindex="0">Declare Consensus</button>
+        </form>
+    </section>
+
+    <section aria-labelledby="agreement-heading" class="section">
+        <h2 id="agreement-heading">Add Agreement</h2>
+        <form action="/session/{{ state.id }}/add-agreement" method="post">
+            <div class="form-group">
+                <label for="agreement-text">Agreement:</label>
+                <textarea id="agreement-text" name="agreement" rows="2" required placeholder="State an agreement point..." tabindex="0"></textarea>
+            </div>
+            <button type="submit" class="submit-button" tabindex="0">Add Agreement</button>
+        </form>
+    </section>
+
+    <section aria-labelledby="disagreement-heading" class="section">
+        <h2 id="disagreement-heading">Add Disagreement</h2>
+        <form action="/session/{{ state.id }}/add-disagreement" method="post">
+            <div class="form-group">
+                <label for="disagreement-text">Disagreement:</label>
+                <textarea id="disagreement-text" name="disagreement" rows="2" required placeholder="State a disagreement point..." tabindex="0"></textarea>
+            </div>
+            <button type="submit" class="submit-button" tabindex="0">Add Disagreement</button>
+        </form>
+    </section>
+
+    <section aria-labelledby="challenge-heading" class="section">
+        <h2 id="challenge-heading">Challenge Contribution</h2>
+        <form action="/session/{{ state.id }}/challenge" method="post">
+            <div class="form-group">
+                <label for="challenge-contribution">Contribution ID:</label>
+                <input type="text" id="challenge-contribution" name="contribution_id" required placeholder="Enter contribution ID to challenge" tabindex="0">
+            </div>
+            <div class="form-group">
+                <label for="challenge-text">Challenge:</label>
+                <textarea id="challenge-text" name="challenge" rows="3" required placeholder="State your challenge..." tabindex="0"></textarea>
+            </div>
+            <button type="submit" class="submit-button" tabindex="0">Submit Challenge</button>
+        </form>
+    </section>
+
+    </main>
+    <p style="color:#888;font-size:12px;margin-top:20px;text-align:center;">Auto-refreshes every 5 seconds</p>
+
+    <div class="scroll-buttons" role="navigation" aria-label="Page navigation">
+        <button class="scroll-button" onclick="scrollToTop()" aria-label="Scroll to top" tabindex="0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M18 15l-6-6-6 6"></path>
+            </svg>
+        </button>
+        <button class="scroll-button" onclick="scrollToBottom()" aria-label="Scroll to bottom" tabindex="0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M6 9l6 6 6-6"></path>
+            </svg>
+        </button>
+    </div>
+
+<script>
+const sessionId = '{{ state.id }}';
+let isUserTyping = false;
+
+// Detect when user is typing in any form input
+document.addEventListener('input', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+        isUserTyping = true;
+        clearTimeout(window.typingTimeout);
+        window.typingTimeout = setTimeout(() => {
+            isUserTyping = false;
+        }, 2000);
+    }
+});
+
+function copySessionId(sessionId) {
+    navigator.clipboard.writeText(sessionId).then(() => {
+        const feedback = document.getElementById('copy-feedback');
+        feedback.textContent = 'Copied!';
+        setTimeout(() => {
+            feedback.textContent = '';
+        }, 2000);
+    }).catch(err => {
+        console.error('Failed to copy:', err);
+        const feedback = document.getElementById('copy-feedback');
+        feedback.textContent = 'Failed to copy';
+        setTimeout(() => {
+            feedback.textContent = '';
+        }, 2000);
+    });
+}
+
+function toggleGoalsEdit() {
+    const display = document.getElementById('goals-display');
+    const edit = document.getElementById('goals-edit');
+    if (display.style.display === 'none') {
+        display.style.display = 'block';
+        edit.style.display = 'none';
+    } else {
+        display.style.display = 'none';
+        edit.style.display = 'block';
+    }
+}
+
+function formatTimestamp(ts) {
+    if (!ts) return '';
+    const datePart = ts.substring(0, 10);
+    const timePart = ts.substring(11, 16);
+    const hour = parseInt(timePart.substring(0, 2));
+    const minute = timePart.substring(3, 5);
+    const ampm = hour < 12 ? 'AM' : 'PM';
+    const displayHour = hour <= 12 ? hour : hour - 12;
+    const finalHour = displayHour === 0 ? 12 : displayHour;
+    return `${datePart} ${finalHour}:${minute} ${ampm}`;
+}
+
+async function fetchSessionData() {
+    if (isUserTyping) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/session/${sessionId}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const state = await response.json();
+
+        // Update phase
+        const phaseElement = document.querySelector('.phase');
+        if (phaseElement && phaseElement.textContent !== state.phase.toUpperCase()) {
+            phaseElement.textContent = state.phase.toUpperCase();
+            phaseElement.className = `phase phase-${state.phase}`;
+        }
+
+        // Update round
+        const roundElement = document.querySelector('.meta');
+        if (roundElement) {
+            const roundText = `Round ${state.round}/${state.max_rounds}`;
+            const metaElements = document.querySelectorAll('.meta');
+            for (const el of metaElements) {
+                if (el.textContent.includes('Round')) {
+                    el.textContent = roundText;
+                    break;
+                }
+            }
+        }
+
+        // Update goals (if not being edited)
+        const goalsDisplay = document.getElementById('goals-display');
+        const goalsEdit = document.getElementById('goals-edit');
+        if (goalsDisplay && goalsDisplay.style.display !== 'none' && goalsEdit.style.display === 'none') {
+            const goalsText = goalsDisplay.firstChild?.textContent?.trim();
+            if (goalsText !== state.goals) {
+                goalsDisplay.innerHTML = `${marked.parse(state.goals)} <button onclick="toggleGoalsEdit()" style="background: none; border: none; color: var(--color-text-secondary); cursor: pointer; font-size: var(--font-size-sm); margin-left: var(--spacing-sm);" aria-label="Edit goals">✎</button>`;
+            }
+        }
+
+        // Update debate section
+        const debateSection = document.querySelector('[aria-labelledby="debate-heading"]');
+        if (debateSection) {
+            const existingContribIds = new Set();
+            debateSection.querySelectorAll('.chat-message').forEach(msg => {
+                const content = msg.querySelector('.content')?.textContent;
+                if (content) {
+                    existingContribIds.add(content);
+                }
+            });
+
+            const newContributions = state.contributions.filter(c => !existingContribIds.has(c.content));
+            const removedContribIds = existingContribIds.size - state.contributions.length;
+
+            if (newContributions.length > 0 || removedContribIds > 0) {
+                // Rebuild debate section
+                let debateHtml = '';
+                if (state.contributions.length === 0) {
+                    debateHtml = '<p class="empty">No contributions yet. Agents are still debating...</p>';
+                } else {
+                    for (const contrib of state.contributions) {
+                        const agentTypeLabel = contrib.agent_type;
+                        debateHtml += `
+                        <div class="chat-message">
+                            <div class="profile-icon ${contrib.agent_type}">
+                                ${contrib.agent_name.charAt(0)}
+                            </div>
+                            <div class="chat-message-content">
+                                <div class="chat-header">
+                                    <span class="chat-name">${contrib.agent_name}</span>
+                                    <span class="chat-model">${agentTypeLabel}</span>
+                                    <span class="chat-timestamp" title="${contrib.timestamp}">
+                                        ${formatTimestamp(contrib.timestamp)}
+                                    </span>
+                                </div>
+                                <div class="content">${marked.parse(contrib.content)}</div>
+                                ${contrib.evidence ? `<div class="evidence">Evidence: ${marked.parse(contrib.evidence)}</div>` : ''}
+                                ${contrib.challenges && contrib.challenges.length > 0 ? `<div class="challenges">Challenges: ${contrib.challenges.join(', ')}</div>` : ''}
+                            </div>
+                        </div>`;
+                    }
+                }
+                debateSection.innerHTML = `<h2 id="debate-heading">Debate</h2>${debateHtml}`;
+            }
+        }
+
+        // Update agreements
+        const agreementsSection = document.querySelector('[aria-labelledby="agreements-heading"]');
+        if (agreementsSection && state.agreements) {
+            let agreementsHtml = '<h2 id="agreements-heading">Agreements</h2><ul>';
+            for (const agreement of state.agreements) {
+                agreementsHtml += `<li>${marked.parse(agreement)}</li>`;
+            }
+            agreementsHtml += '</ul>';
+            agreementsSection.innerHTML = agreementsHtml;
+        }
+
+        // Update disagreements
+        const disagreementsSection = document.querySelector('[aria-labelledby="disagreements-heading"]');
+        if (disagreementsSection && state.disagreements) {
+            let disagreementsHtml = '<h2 id="disagreements-heading">Disagreements</h2><ul>';
+            for (const disagreement of state.disagreements) {
+                disagreementsHtml += `<li>${marked.parse(disagreement)}</li>`;
+            }
+            disagreementsHtml += '</ul>';
+            disagreementsSection.innerHTML = disagreementsHtml;
+        }
+
+        // Update questions section
+        const questionsSection = document.querySelector('[aria-labelledby="questions-heading"]');
+        if (questionsSection && state.questions) {
+            let questionsHtml = '<h2 id="questions-heading">Clarification Questions</h2>';
+            for (const question of state.questions) {
+                questionsHtml += `
+                <div style="margin-bottom: var(--spacing-lg); padding: var(--spacing-md); background: var(--bg-secondary); border-radius: var(--radius-sm);">
+                    <div style="font-weight: bold; margin-bottom: var(--spacing-sm);">Q: ${marked.parse(question.question)}</div>
+                    ${question.answer ? `<div style="color: var(--color-text-secondary);">A: ${marked.parse(question.answer)}</div>` : `
+                    <form action="/session/${sessionId}/answer-question" method="post" style="margin-top: var(--spacing-md);">
+                        <input type="hidden" name="question_id" value="${question.id}">
+                        <div class="form-group">
+                            <label for="answer-${question.id}">Your Answer:</label>
+                            <textarea id="answer-${question.id}" name="answer" rows="2" required placeholder="Type your answer here..." tabindex="0"></textarea>
+                        </div>
+                        <button type="submit" class="submit-button" tabindex="0">Submit Answer</button>
+                    </form>`}
+                </div>`;
+            }
+            questionsSection.innerHTML = questionsHtml;
+        }
+
+    } catch (error) {
+        console.error('Failed to fetch session data:', error);
+    }
+}
+
+// Auto-refresh session data every 5 seconds (only if not typing)
+setInterval(fetchSessionData, 5000);
+
+function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function scrollToBottom() {
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>

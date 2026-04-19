@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Consensus Session</title>
+    <link rel="stylesheet" href="/static/base.css">
+</head>
+<body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <nav class="back-nav" aria-label="Back navigation">
+        <a href="/sessions" class="back-button" tabindex="0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M19 12H5M12 19l-7-7 7-7"></path>
+            </svg>
+            Back to Sessions
+        </a>
+    </nav>
+    
+    <header role="banner">
+        <h1>Create New Consensus Session</h1>
+    </header>
+    
+    <main id="main-content" role="main">
+        <section class="section">
+            <form action="/sessions/create" method="post">
+                <div class="form-group">
+                    <label for="topic">Topic / Question:</label>
+                    <input type="text" id="topic" name="topic" required 
+                           placeholder="e.g., OpenCL Acceleration Plan for FlannBasedMatcher - Technical Review"
+                           tabindex="0">
+                </div>
+                
+                <div class="form-group">
+                    <label for="goals">Goals:</label>
+                    <textarea id="goals" name="goals" rows="3" required
+                              placeholder="e.g., Critically evaluate the design, identify issues, validate decisions, and propose improvements"
+                              tabindex="0"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="max_rounds">Maximum Rounds:</label>
+                    <input type="number" id="max_rounds" name="max_rounds" value="5" min="1" max="20"
+                           tabindex="0" style="width: 100px;">
+                </div>
+                
+                <div class="form-group">
+                    <label>Initial Agent Setup:</label>
+                    <p style="color: var(--color-text-secondary); font-size: var(--font-size-md); margin-bottom: var(--spacing-md);">
+                        A default Moderator agent will be added. The LLM can then add specialized agents 
+                        (scientists, perspectives, synthesizers) using the <code>add_agent</code> MCP tool.
+                    </p>
+                </div>
+                
+                <div style="display: flex; gap: var(--spacing-md); margin-top: var(--spacing-xl);">
+                    <button type="submit" class="submit-button" tabindex="0">Create Session</button>
+                    <a href="/sessions" class="back-button" style="text-decoration: none;" tabindex="0">Cancel</a>
+                </div>
+            </form>
+        </section>
+        
+        <section class="section" style="background: var(--bg-agents);">
+            <h2>How It Works</h2>
+            <ol style="line-height: 1.8; color: var(--color-text-secondary);">
+                <li><strong>Create the session</strong> with a topic and goals</li>
+                <li><strong>LLM adds agents</strong> using the <code>add_agent</code> tool with appropriate types:
+                    <ul style="margin-top: var(--spacing-sm);">
+                        <li><code>scientist</code> - Tests hypotheses with code/experiments</li>
+                        <li><code>perspective</code> - Provides domain expertise and challenges</li>
+                        <li><code>synthesizer</code> - Tracks convergence and identifies agreements</li>
+                        <li><code>moderator</code> - Manages flow and enforces structure</li>
+                    </ul>
+                </li>
+                <li><strong>Debate begins</strong> - Agents share reasoning, challenge claims, run experiments</li>
+                <li><strong>Consensus emerges</strong> - Synthesizer identifies agreements, moderator guides toward conclusion</li>
+            </ol>
+        </section>
+    </main>
+
+    <div class="scroll-buttons" role="navigation" aria-label="Page navigation">
+        <button class="scroll-button" onclick="scrollToTop()" aria-label="Scroll to top" tabindex="0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M18 15l-6-6-6 6"></path>
+            </svg>
+        </button>
+        <button class="scroll-button" onclick="scrollToBottom()" aria-label="Scroll to bottom" tabindex="0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M6 9l6 6 6-6"></path>
+            </svg>
+        </button>
+    </div>
+
+    <script>
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function scrollToBottom() {
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
