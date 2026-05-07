@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any
 
 import markdown
-
 from fastmcp import FastMCP
 from jinja2 import Environment, FileSystemLoader
 from starlette.requests import Request
@@ -143,7 +142,8 @@ def markdown_filter(text: str) -> str:
         return ""
     # Collapse excessive newlines (more than 2 consecutive newlines to exactly 2)
     import re
-    text = re.sub(r'\n{3,}', '\n', text)
+
+    text = re.sub(r"\n{3,}", "\n", text)
     return markdown.markdown(text, extensions=["fenced_code", "tables", "nl2br"])
 
 
@@ -584,7 +584,10 @@ class SessionManager:
             session: The consensus session to add bug hunter agents to.
         """
         for agent in list(session.agents.values()):
-            if agent.agent_type not in [AgentType.BUG_HUNTER, AgentType.CODE_VERIFICATION]:
+            if agent.agent_type not in [
+                AgentType.BUG_HUNTER,
+                AgentType.CODE_VERIFICATION,
+            ]:
                 bug_hunter_id = str(uuid.uuid4())
                 bug_hunter = Agent(
                     id=bug_hunter_id,
@@ -604,7 +607,9 @@ class SessionManager:
             model="default",
         )
         session.agents[code_verifier_id] = code_verifier
-        logger.info(f"Spawned bug hunter agents and code verifier for session {session.id}")
+        logger.info(
+            f"Spawned bug hunter agents and code verifier for session {session.id}"
+        )
 
     def set_phase(self, session_id: str, phase: SessionPhase) -> bool:
         lock = self._acquire_lock()
@@ -724,7 +729,9 @@ class SessionManager:
                 if question.id == question_id:
                     question.answer = answer
                     self._write_sessions(sessions)
-                    logger.info(f"Answer submitted for question {question_id} in session {session_id}")
+                    logger.info(
+                        f"Answer submitted for question {question_id} in session {session_id}"
+                    )
                     return True
 
             logger.warning(f"Question not found: {question_id} in session {session_id}")
@@ -827,7 +834,9 @@ class SessionManager:
         finally:
             self._release_lock(lock)
 
-    def report_bug(self, session_id: str, agent_id: str, bug_report: dict[str, Any]) -> bool:
+    def report_bug(
+        self, session_id: str, agent_id: str, bug_report: dict[str, Any]
+    ) -> bool:
         """Report a bug from a bug hunter agent.
 
         Args:
@@ -863,7 +872,14 @@ class SessionManager:
         finally:
             self._release_lock(lock)
 
-    def verify_bug(self, session_id: str, agent_id: str, bug_index: int, verified: bool, comment: str = "") -> bool:
+    def verify_bug(
+        self,
+        session_id: str,
+        agent_id: str,
+        bug_index: int,
+        verified: bool,
+        comment: str = "",
+    ) -> bool:
         """Verify a bug report from a code verification agent.
 
         Args:
@@ -891,15 +907,21 @@ class SessionManager:
                 logger.warning(f"Agent {agent_id} is not a code verification agent")
                 return False
             if bug_index < 0 or bug_index >= len(session.bugs):
-                logger.warning(f"Bug index {bug_index} out of range in session {session_id}")
+                logger.warning(
+                    f"Bug index {bug_index} out of range in session {session_id}"
+                )
                 return False
             session.bugs[bug_index]["verified"] = verified
             session.bugs[bug_index]["verified_by"] = agent_id
             session.bugs[bug_index]["verifier_name"] = agent.name
             session.bugs[bug_index]["verification_comment"] = comment
-            session.bugs[bug_index]["verification_timestamp"] = datetime.now().isoformat()
+            session.bugs[bug_index][
+                "verification_timestamp"
+            ] = datetime.now().isoformat()
             self._write_sessions(sessions)
-            logger.info(f"Bug {bug_index} verified by {agent.name} in session {session_id}: {verified}")
+            logger.info(
+                f"Bug {bug_index} verified by {agent.name} in session {session_id}: {verified}"
+            )
             return True
         finally:
             self._release_lock(lock)
@@ -1145,9 +1167,7 @@ def run_experiment(
         signal.alarm(0)  # Ensure alarm is cancelled
 
     content = f"Hypothesis: {hypothesis}\nResult: {result or 'No output'}\nError: {error or 'None'}"
-    manager.add_contribution(
-        session_id, agent_id, content, evidence=result or error
-    )
+    manager.add_contribution(session_id, agent_id, content, evidence=result or error)
     return f"Experiment completed.\nHypothesis: {hypothesis}\nOutput: {result}\nError: {error}"
 
 
@@ -1302,47 +1322,47 @@ def get_next_actions(session_id: str) -> str:
         SessionPhase.CLARIFICATION: [
             "Use ask_question to ask the user clarifying questions about the topic/goals",
             "Wait for user to answer questions using submit_answer",
-            "Once clarification is complete, use advance_phase to move to 'setup' phase"
+            "Once clarification is complete, use advance_phase to move to 'setup' phase",
         ],
         SessionPhase.SETUP: [
             "Call moderator to introduce topic and set goals using share_reasoning",
-            "Use advance_phase to move to 'position' phase"
+            "Use advance_phase to move to 'position' phase",
         ],
         SessionPhase.POSITION: [
             "Call all perspective agents to share initial views using share_reasoning",
             "Ensure each agent has contributed at least once",
-            "Use advance_phase to move to 'testing' phase when all perspectives shared"
+            "Use advance_phase to move to 'testing' phase when all perspectives shared",
         ],
         SessionPhase.TESTING: [
             "Call scientist agent to run experiments using run_experiment",
             "Review experimental results",
-            "Use advance_phase to move to 'challenge' phase when testing complete"
+            "Use advance_phase to move to 'challenge' phase when testing complete",
         ],
         SessionPhase.CHALLENGE: [
             "Call perspective agents to dispute claims using challenge_claim",
             "Encourage agents to question reasoning and evidence",
-            "Use advance_phase to move to 'synthesis' phase when challenges resolved"
+            "Use advance_phase to move to 'synthesis' phase when challenges resolved",
         ],
         SessionPhase.SYNTHESIS: [
             "Call synthesizer to analyze convergence using summarize",
             "Call synthesizer to identify agreements using add_agreement",
             "Call synthesizer to identify disagreements using add_disagreement",
-            "Use advance_phase to move to 'refine' phase when synthesis complete"
+            "Use advance_phase to move to 'refine' phase when synthesis complete",
         ],
         SessionPhase.REFINE: [
             "Call agents to address gaps and update positions using share_reasoning",
             "If consensus emerging, use advance_phase to move to 'convergence'",
-            "If max rounds reached, move to 'complete' phase"
+            "If max rounds reached, move to 'complete' phase",
         ],
         SessionPhase.CONVERGENCE: [
             "Call synthesizer to declare consensus using declare_consensus",
             "Or call moderator to end session without consensus",
-            "Use advance_phase to move to 'complete' phase"
+            "Use advance_phase to move to 'complete' phase",
         ],
         SessionPhase.COMPLETE: [
             "Session is complete - no further actions needed",
-            "Use get_state to review final consensus"
-        ]
+            "Use get_state to review final consensus",
+        ],
     }
 
     actions = phase_actions.get(session.phase, ["Unknown phase - check session state"])
@@ -1611,7 +1631,7 @@ def submit_answer(session_id: str, question_id: str, answer: str) -> str:
     """
     if manager.submit_answer(session_id, question_id, answer):
         return f"Answer submitted successfully for question {question_id}"
-    return f"Failed to submit answer. Session or question not found."
+    return "Failed to submit answer. Session or question not found."
 
 
 @mcp.tool
@@ -1636,11 +1656,13 @@ def report_bug(session_id: str, agent_id: str, bug_report: dict[str, Any]) -> st
     """
     if manager.report_bug(session_id, agent_id, bug_report):
         return f"Bug reported successfully by agent {agent_id}"
-    return f"Failed to report bug. Session or agent not found, or agent is not a bug hunter."
+    return "Failed to report bug. Session or agent not found, or agent is not a bug hunter."
 
 
 @mcp.tool
-def verify_bug(session_id: str, agent_id: str, bug_index: int, verified: bool, comment: str = "") -> str:
+def verify_bug(
+    session_id: str, agent_id: str, bug_index: int, verified: bool, comment: str = ""
+) -> str:
     """Verify a bug report from a bug hunter agent.
 
     This tool is used by the code verification agent to verify bug reports
@@ -1659,7 +1681,7 @@ def verify_bug(session_id: str, agent_id: str, bug_index: int, verified: bool, c
     if manager.verify_bug(session_id, agent_id, bug_index, verified, comment):
         status = "verified" if verified else "rejected"
         return f"Bug {bug_index} {status} by code verification agent"
-    return f"Failed to verify bug. Session, agent, or bug not found, or agent is not a code verification agent."
+    return "Failed to verify bug. Session, agent, or bug not found, or agent is not a code verification agent."
 
 
 def main():
@@ -2290,7 +2312,9 @@ async def answer_question_handler(request: Request) -> HTMLResponse:
 
     success = manager.submit_answer(session_id, question_id, answer)
     if success:
-        logger.info(f"Web: Answer submitted for question {question_id} in session {session_id}")
+        logger.info(
+            f"Web: Answer submitted for question {question_id} in session {session_id}"
+        )
     else:
         return HTMLResponse("<h1>Failed to submit answer</h1>", status_code=500)
 

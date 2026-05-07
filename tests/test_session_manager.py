@@ -3,11 +3,10 @@
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
-from consensus_mcp.server import (LOCK_FILE, SESSIONS_FILE, SessionManager)
+from consensus_mcp.server import SessionManager
 
 
 @pytest.fixture
