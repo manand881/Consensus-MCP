@@ -2,7 +2,7 @@
 
 import pytest
 
-from consensus_mcp.server import (AgentType, SessionManager, SessionPhase)
+from consensus_mcp.server import AgentType, SessionManager, SessionPhase
 from consensus_mcp.server import manager as shared_manager
 
 
@@ -694,8 +694,7 @@ class TestToolFunctions:
 
     def test_tool_add_disagreement(self):
         """Test add_disagreement tool."""
-        from consensus_mcp.server import \
-            add_disagreement as tool_add_disagreement
+        from consensus_mcp.server import add_disagreement as tool_add_disagreement
         from consensus_mcp.server import start_consensus
 
         shared_manager.clear_all_sessions()
